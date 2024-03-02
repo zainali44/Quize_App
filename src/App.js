@@ -23,7 +23,7 @@ const App = () => {
   };
 
   useEffect(() => {
-    const closeTime = new Date('July 9, 2023 2:10:00').getTime();
+    const closeTime = new Date('July 9, 2024 2:10:00').getTime();
     const currentTime = new Date();
 
     if (currentTime > closeTime) {
