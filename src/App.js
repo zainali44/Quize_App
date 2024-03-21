@@ -1,80 +1,119 @@
 import React, { useState, useEffect } from 'react';
 import quizzeData from './quizData';
-import './App.css';
-import './remainingTime';
+import {FirebaseApp}  from './firebase';
+import { 
+  getFirestore, 
+  collection, 
+  getDocs ,
+  addDoc
+} from 'firebase/firestore/lite';
+import { Button, Card, Option, Spinner, Typography } from "@material-tailwind/react";
 
 const App = () => {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [score, setScore] = useState(0);
-  const [showScore, setShowScore] = useState(false);
-  const [quizClosed, setQuizClosed] = useState(false);
+  const [quizzes, setQuizzes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [questions, setQuestions] = useState([]);
+  const [answers, setAnswers] = useState([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showResults, setShowResults] = useState(false);
 
-  const handleAnswerOptionClick = (isCorrect) => {
-    if (isCorrect) {
-      setScore(score + 1);
-    }
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        const db = getFirestore(FirebaseApp);
+        const quizCollection = collection(db, 'quizzes');
+        const quizSnapshot = await getDocs(quizCollection);
+        const data = quizSnapshot.docs.map(doc => doc.data());
+        setQuestions(data);
+        setAnswers(Array(data.length).fill(null));
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching questions:', error);
+      }
+    };
+    fetchQuestions();
+    console.log("Q", questions);
+  }, []);
 
-    const nextQuestion = currentQuestion + 1;
-    if (nextQuestion < quizzeData.length) {
-      setCurrentQuestion(nextQuestion);
-    } else {
-      setShowScore(true);
+  if (loading) {
+    return (
+      <div className='flex items-center justify-center min-h-screen'>
+        <Spinner size="3xl" />
+      </div>
+    );
+
+  }
+
+  const handleAnswerSelect = (index, optionIndex) => {
+    const newAnswers = [...answers];
+    newAnswers[index] = optionIndex;
+    setAnswers(newAnswers);
+  };
+
+  const handleNextQuestion = () => {
+    setCurrentQuestionIndex(currentQuestionIndex + 1);
+    if (currentQuestionIndex === questions.length - 1) {
+      setShowResults(true);
     }
   };
 
-  useEffect(() => {
-    const closeTime = new Date('July 9, 2023 2:10:00').getTime();
-    const currentTime = new Date();
-
-    if (currentTime > closeTime) {
-      setQuizClosed(true);
+  const calculateScore = () => {
+    let score = 0;
+    for (let i = 0; i < questions.length; i++) {
+      if (questions[i].options[answers[i]].isCorrect) {
+        score++;
+      }
     }
-  }, []);
+    return score;
+  };
 
   return (
-    <div className="app">
-      <h1>Quiz App</h1>
-      {showScore ? (
-        <div className="score-section">
-          You scored {score} out of {quizzeData.length}
-          {document.getElementById("quiz-closed").style.display = "none"}
-          {document.getElementById("footer").style.display = "none"}
+    <div className='flex flex-col items-center justify-center min-h-screen'>
+      <div className='flex items-center justify-center'>
+        <icon className='text-4xl font-bold'>🧠</icon>
+        <Typography tag='h1' color='gray' className='text-4xl font-bold ml-2'>
+          Quizzes
+        </Typography>
+      </div>
+      <div className='mt-8'>
+      {showResults ? (
+        <div>
+          <h1 className="text-2xl font-bold mb-4">Results</h1>
+          <p className="text-lg">Your score: {calculateScore()} out of {questions.length}</p>
         </div>
-      ) : quizClosed ? (
-        <div className="quiz-closed">The quiz is now closed.</div>
-      ) : (
-        <>
-          <div className="question-section">
-            <div className="question-count">
-              <span>Question {currentQuestion + 1}</span>/{quizzeData.length}
-            </div>
-            <div className="question-text">
-              {quizzeData[currentQuestion].question}
-            </div>
-          </div>
-          <div className="answer-section">
-            {quizzeData[currentQuestion].options.map((option) => (
-              <label key={option.text}>
-                <input
-                  type="radio"
-                  name="answer"
-                  value={option.isCorrect}
-                  onChange={() => handleAnswerOptionClick(option.isCorrect)}
-                />
+      ) : ( 
+        <div className="space-y-8 w-full max-w-md items-center justify-center">
+          <h1 className="text-2xl font-bold mb-4">{questions[currentQuestionIndex]?.question}</h1>
+          <div className="space-y-4">
+            {questions[currentQuestionIndex]?.options.map((option, index) => (
+              <button
+                key={index}
+                className={`w-full text-left ${
+                  answers[currentQuestionIndex] === index ? 'bg-gray-800 text-white' : 'bg-white'
+                } border border-gray-300 rounded-full p-4 focus:outline-none hover:bg-gray-100`}
+                onClick={() => handleAnswerSelect(currentQuestionIndex, index)}
+                disabled={answers[currentQuestionIndex] !== null}
+              >
                 {option.text}
-              </label>
+              </button>
             ))}
           </div>
-        </>
-      )}
+          <Button
+            buttonType="filled"
+            size="regular"
+            rounded={false}
+            block={false}
+            iconOnly={false}
+            ripple="light"
+            onClick={handleNextQuestion}
+            className="mt-4"
+          >
+            Next Question
+          </Button>
 
-    <div id="quiz-closed" className="Remaining-time">
-            <span>Remaining time: </span>
-            <span id="countdown"></span>
         </div>
-        <footer id="footer"> 
-        <p>Created by: <a href="https://www.linkedin.com/in/zaindev/">ZAIN</a></p>
-    </footer>
+      )}
+      </div>
     </div>
   );
 };
